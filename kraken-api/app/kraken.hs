@@ -35,7 +35,7 @@ instance FromJSON PartialAPIKey where
                     <*> (fmap (Last . fmap pack) $ v .:? "PrivateKey")
 
 instance Monoid PartialAPIKey where
-    mempty        = PartialAPIKey (Last Nothing) (Last Nothing)
+    mempty        = PartialAPIKey mempty mempty
     mappend c1 c2 = PartialAPIKey (Main.publicKey c1 <> Main.publicKey c2) (Main.secretKey c1 <> Main.secretKey c2)
 
 parseAPIKeys :: Parser PartialAPIKey
