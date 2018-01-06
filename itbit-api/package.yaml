@@ -1,0 +1,59 @@
+name:                itbit-api
+version:             0.1.0.0
+github:              "githubuser/crypto-exchange-apis"
+license:             BSD3
+author:              "Adam Walker"
+maintainer:          "adamwalker10@gmail"
+copyright:           "2018 Adam Walker"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+synopsis:            Haskell bindings to the ItBit API
+category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on Github at <https://github.com/adamwalker/crypto-exchange-apis#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+    - aeson
+    - req
+    - time
+    - SHA
+    - aeson-pretty
+    - data-default-class
+    - bytestring
+    - base64-bytestring
+  ghc-options:
+    - -W
+    - -Werror
+
+executables:
+  itbit:
+    main:                itbit.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -W
+    - -Werror
+    dependencies:
+    - itbit-api
+    - aeson
+    - bytestring
+    - optparse-applicative
+    - errors
+    - transformers
+    - yaml
+    - directory
+    - either
