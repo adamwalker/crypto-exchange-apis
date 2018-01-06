@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 module Kraken where
 
-import Control.Monad.IO.Class
 import Data.ByteString.Lazy (ByteString)
 import Data.Monoid
 import Data.Default.Class
@@ -13,7 +12,6 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Aeson
 import Network.HTTP.Req
 import Data.Digest.Pure.SHA
-import Data.Aeson.Encode.Pretty hiding (Config)
 
 sign :: ByteString -> ByteString -> ByteString -> ByteString -> ByteString
 sign secretKey url nonce payload = result
@@ -64,7 +62,12 @@ data APIKey = APIKey {
     secretKey :: ByteString
 }
 
-doRequest :: APIKey -> Int -> IO ()
+instance FromJSON APIKey where
+    parseJSON = withObject "APIKey" $ \v -> APIKey
+        <$> fmap pack (v .: "PublicKey")
+        <*> fmap pack (v .: "PrivateKey")
+
+doRequest :: APIKey -> Int -> IO (JsonResponse Value)
 doRequest APIKey{..} nonce = runReq def $ do
 
     let payload = object [ 
@@ -87,10 +90,12 @@ doRequest APIKey{..} nonce = runReq def $ do
             <> header "API-Sign" (BS.toStrict sig)
         )
 
-    liftIO $ BS.putStrLn $ encodePretty (responseBody r :: Value)
+    return r
 
-    let parsed :: Result (APIResult Balances)
-        parsed = fromJSON $ responseBody r
+    --liftIO $ BS.putStrLn $ encodePretty (responseBody r :: Value)
 
-    liftIO $ print parsed
+    --let parsed :: Result (APIResult Balances)
+    --    parsed = fromJSON $ responseBody r
+
+    --liftIO $ print parsed
 
