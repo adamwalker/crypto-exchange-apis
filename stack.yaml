@@ -3,3 +3,5 @@ resolver: nightly-2017-11-30
 packages:
 - kraken-api
 - itbit-api
+- btcmarkets-api
+
