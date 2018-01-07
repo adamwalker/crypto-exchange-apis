@@ -6,6 +6,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Monoid
 import Data.Maybe
 import Control.Monad.Trans.Except
+import Control.Monad
 
 import Data.ByteString.Lazy.Char8 (pack)
 import qualified Data.ByteString.Char8 as BSS
@@ -77,7 +78,7 @@ doIt (cmdlineAPIKey, nonce) = do
     fileAPIKey <- getConfigFile
     envAPIKey  <- liftIO getConfigEnv
     apiKey     <- ExceptT $ return $ apiKeyFromMaybe $ fromMaybe mempty fileAPIKey <> envAPIKey <> cmdlineAPIKey
-    liftIO $ doRequest apiKey nonce
+    void $ liftIO $ doRequest apiKey nonce
 
 main :: IO ()
 main = execParser opts >>= runExceptT . doIt >>= printErr

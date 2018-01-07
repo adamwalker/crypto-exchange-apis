@@ -15,7 +15,6 @@ import Data.Aeson
 import Network.HTTP.Req
 import Data.Time.Clock.POSIX
 import Data.Digest.Pure.SHA
-import Data.Aeson.Encode.Pretty hiding (Config)
 
 sign :: ByteString -> ByteString -> ByteString -> ByteString -> ByteString
 sign secretKey url nonce ts = result
@@ -40,7 +39,7 @@ data Currency
     | XBT
     | EUR
     | SGD
-    deriving (Show)
+    deriving (Show, Eq)
 
 instance FromJSON Currency where
     parseJSON = withText "Currency" $ \case
@@ -101,7 +100,13 @@ data APIKey = APIKey {
     privateKey :: ByteString
 }
 
-doRequest :: APIKey -> Int -> IO ()
+instance FromJSON APIKey where
+    parseJSON = withObject "APIKey" $ \v -> APIKey
+        <$> fmap pack (v .: "UserId")
+        <*> fmap pack (v .: "PublicKey")
+        <*> fmap pack (v .: "PrivateKey")
+
+doRequest :: APIKey -> Int -> IO (JsonResponse Value)
 doRequest APIKey{..} nonce' = runReq def $ do
 
     currentTime <- liftIO $ getPOSIXTime
@@ -127,10 +132,12 @@ doRequest APIKey{..} nonce' = runReq def $ do
             <> header "Content-Type"     "application/json"
         )
 
-    liftIO $ BS.putStrLn $ encodePretty (responseBody r :: Value)
+    return r
 
-    let parsed :: Result [Wallet]
-        parsed = fromJSON $ responseBody r
+    --liftIO $ BS.putStrLn $ encodePretty (responseBody r :: Value)
 
-    liftIO $ print parsed
+    --let parsed :: Result [Wallet]
+    --    parsed = fromJSON $ responseBody r
+
+    --liftIO $ print parsed
 

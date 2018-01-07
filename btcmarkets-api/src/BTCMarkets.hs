@@ -32,6 +32,11 @@ data APIKey = APIKey {
     apiPrivateKey :: ByteString
 }
 
+instance FromJSON APIKey where
+    parseJSON = withObject "APIKey" $ \v -> APIKey
+        <$> fmap pack (v .: "PublicKey")
+        <*> fmap pack (v .: "PrivateKey")
+
 sendPost :: ToJSON a => APIKey -> ByteString -> a -> IO Value
 sendPost APIKey{..} path payload = runReq def $ do
 
