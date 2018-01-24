@@ -6,7 +6,6 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Monoid
 import Data.Maybe
 import Control.Monad.Trans.Except
-import Control.Monad
 
 import Data.ByteString.Lazy.Char8 (pack)
 import qualified Data.ByteString.Char8 as BSS
@@ -17,6 +16,7 @@ import Data.Yaml (decodeEither', ParseException)
 import System.Directory
 import Data.Either.Combinators
 import System.Environment
+import Network.HTTP.Req hiding (header)
 
 import Kraken
 
@@ -68,17 +68,29 @@ getConfigEnv
     where
     hackEnv = Last . fmap pack
 
-doIt :: (PartialAPIKey, Int) -> ExceptT String IO ()
-doIt (cmdlineAPIKey, nonce) = do
+data Command
+    = BalanceCmd
+
+parseCommand :: Parser Command
+parseCommand = hsubparser $ mconcat [
+        command "Balance" (info (pure BalanceCmd) (progDesc "Get balances"))
+    ]
+
+doIt :: (PartialAPIKey, Int, Command) -> ExceptT String IO ()
+doIt (cmdlineAPIKey, nonce, command) = do
     fileAPIKey <- getConfigFile
     envAPIKey  <- liftIO getConfigEnv
     apiKey     <- ExceptT $ return $ apiKeyFromMaybe $ fromMaybe mempty fileAPIKey <> envAPIKey <> cmdlineAPIKey
-    void $ liftIO $ doRequest apiKey nonce
+    
+    res <- case command of
+        BalanceCmd -> liftIO $ doRequest apiKey nonce
+
+    liftIO $ print $ responseBody res
 
 main :: IO ()
 main = execParser opts >>= runExceptT . doIt >>= printErr
     where
-    opts = info (helper <*> ((,) <$> parseAPIKeys <*> parseNonce)) (fullDesc <> header "Kraken API")
+    opts = info (helper <*> ((,,) <$> parseAPIKeys <*> parseNonce <*> parseCommand)) (fullDesc <> header "Kraken API")
 
     parseNonce = argument auto (metavar "NONCE")
 
