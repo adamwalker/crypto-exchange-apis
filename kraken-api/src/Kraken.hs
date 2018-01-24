@@ -83,6 +83,7 @@ instance ToJSON OrderType where
     toJSON Market = "market"
 
 data Order = Order {
+    nonce       :: Int,
     assetPair   :: AssetPair,
     orderSide   :: OrderSide,
     orderType   :: OrderType,
@@ -91,16 +92,18 @@ data Order = Order {
 
 instance ToJSON Order where
     toJSON Order{..} = object [
+            "nonce"     .= nonce,
             "pair"      .= assetPair,
             "type"      .= orderSide,
             "ordertype" .= orderType,
-            "volume"    .= ("0.0001" :: String) --orderVolume
+            "volume"    .= ("0.001" :: String) --orderVolume
         ]
     toEncoding Order{..} = pairs $ 
-           "pair"      .= assetPair
+           "nonce"     .= nonce
+        <> "pair"      .= assetPair
         <> "type"      .= orderSide
         <> "ordertype" .= orderType
-        <> "volume"    .= ("0.0001" :: String) --orderVolume
+        <> "volume"    .= ("0.001" :: String) --orderVolume
 
 data APIKey = APIKey {
     publicKey :: ByteString,
@@ -118,9 +121,11 @@ doRequest APIKey{..} path = runReq def $ do
     currentTime <- liftIO getPOSIXTime
     let nonce = floor $ currentTime * 100
 
-    let payload = object [ 
-            "nonce" .= (nonce :: Int)
-            ]
+    --let payload = object [ 
+    --        "nonce" .= (nonce :: Int)
+    --        ]
+
+    let payload = Order nonce XBTUSD Buy Market 0.001
 
     let sig = sign 
             (B64.decodeLenient secretKey)

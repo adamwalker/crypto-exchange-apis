@@ -70,10 +70,12 @@ getConfigEnv
 
 data Command
     = BalanceCmd
+    | OrderCmd
 
 parseCommand :: Parser Command
 parseCommand = hsubparser $ mconcat [
-        command "Balance" (info (pure BalanceCmd) (progDesc "Get balances"))
+        command "Balance" (info (pure BalanceCmd) (progDesc "Get balances")),
+        command "Order"   (info (pure OrderCmd)   (progDesc "Create order"))
     ]
 
 doIt :: (PartialAPIKey, Command) -> ExceptT String IO ()
@@ -84,6 +86,7 @@ doIt (cmdlineAPIKey, command) = do
     
     res <- case command of
         BalanceCmd -> liftIO $ doRequest apiKey balancePath
+        OrderCmd   -> liftIO $ doRequest apiKey addOrderPath
 
     liftIO $ print $ responseBody res
 
