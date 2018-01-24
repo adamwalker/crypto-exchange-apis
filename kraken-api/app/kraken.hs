@@ -68,14 +68,28 @@ getConfigEnv
     where
     hackEnv = Last . fmap pack
 
+parseSide :: ReadM OrderSide
+parseSide = eitherReader $ \arg -> case arg of
+    "Buy"  -> return Buy
+    "Sell" -> return Sell
+    _      -> Left $ "Cannot parse side"
+
+parseOrder :: Parser Order
+parseOrder 
+    =   Order
+    <$> pure XBTUSD
+    <*> argument parseSide (metavar "SIDE")
+    <*> pure Market
+    <*> argument auto      (metavar "AMOUNT")
+
 data Command
     = BalanceCmd
-    | OrderCmd
+    | OrderCmd Order
 
 parseCommand :: Parser Command
 parseCommand = hsubparser $ mconcat [
-        command "Balance" (info (pure BalanceCmd) (progDesc "Get balances")),
-        command "Order"   (info (pure OrderCmd)   (progDesc "Create order"))
+        command "Balance" (info (pure BalanceCmd)         (progDesc "Get balances")),
+        command "Order"   (info (OrderCmd <$> parseOrder) (progDesc "Create order"))
     ]
 
 doIt :: (PartialAPIKey, Command) -> ExceptT String IO ()
@@ -85,8 +99,8 @@ doIt (cmdlineAPIKey, command) = do
     apiKey     <- ExceptT $ return $ apiKeyFromMaybe $ fromMaybe mempty fileAPIKey <> envAPIKey <> cmdlineAPIKey
     
     res <- case command of
-        BalanceCmd -> liftIO $ doRequest apiKey balancePath
-        OrderCmd   -> liftIO $ doRequest apiKey addOrderPath
+        BalanceCmd   -> liftIO $ doRequest apiKey balancePath  ()
+        OrderCmd   o -> liftIO $ doRequest apiKey addOrderPath o
 
     liftIO $ print $ responseBody res
 

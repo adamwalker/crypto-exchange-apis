@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, FlexibleInstances, FlexibleContexts #-}
 module Kraken where
 
 import Data.ByteString.Lazy (ByteString)
@@ -7,6 +7,7 @@ import Data.Default.Class
 import Data.Maybe
 import Data.Time.Clock.POSIX
 import Control.Monad.IO.Class
+import Text.Printf
 
 import Data.ByteString.Lazy.Char8 (pack)
 import qualified Data.ByteString.Base64.Lazy as B64
@@ -100,14 +101,19 @@ instance ToJSON (Nonced Order) where
             "pair"      .= assetPair,
             "type"      .= orderSide,
             "ordertype" .= orderType,
-            "volume"    .= ("0.001" :: String) --orderVolume
+            "volume"    .= (printf "%.3f" orderVolume :: String)
         ]
     toEncoding (Nonced nonce Order{..}) = pairs $ 
            "nonce"     .= nonce
         <> "pair"      .= assetPair
         <> "type"      .= orderSide
         <> "ordertype" .= orderType
-        <> "volume"    .= ("0.001" :: String) --orderVolume
+        <> "volume"    .= (printf "%.3f" orderVolume :: String)
+
+instance ToJSON (Nonced ()) where
+    toJSON (Nonced nonce ()) = object [
+            "nonce"     .= nonce
+        ]
 
 data APIKey = APIKey {
     publicKey :: ByteString,
@@ -119,13 +125,13 @@ instance FromJSON APIKey where
         <$> fmap pack (v .: "PublicKey")
         <*> fmap pack (v .: "PrivateKey")
 
-doRequest :: APIKey -> ByteString -> IO (JsonResponse Value)
-doRequest APIKey{..} path = runReq def $ do
+doRequest :: ToJSON (Nonced a) => APIKey -> ByteString -> a -> IO (JsonResponse Value)
+doRequest APIKey{..} path val = runReq def $ do
 
     currentTime <- liftIO getPOSIXTime
     let nonce = floor $ currentTime * 100
 
-    let payload = Nonced nonce $ Order XBTUSD Buy Market 0.001
+    let payload = Nonced nonce val
 
     let sig = sign 
             (B64.decodeLenient secretKey)
