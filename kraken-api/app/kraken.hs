@@ -76,23 +76,21 @@ parseCommand = hsubparser $ mconcat [
         command "Balance" (info (pure BalanceCmd) (progDesc "Get balances"))
     ]
 
-doIt :: (PartialAPIKey, Int, Command) -> ExceptT String IO ()
-doIt (cmdlineAPIKey, nonce, command) = do
+doIt :: (PartialAPIKey, Command) -> ExceptT String IO ()
+doIt (cmdlineAPIKey, command) = do
     fileAPIKey <- getConfigFile
     envAPIKey  <- liftIO getConfigEnv
     apiKey     <- ExceptT $ return $ apiKeyFromMaybe $ fromMaybe mempty fileAPIKey <> envAPIKey <> cmdlineAPIKey
     
     res <- case command of
-        BalanceCmd -> liftIO $ doRequest apiKey nonce
+        BalanceCmd -> liftIO $ doRequest apiKey balancePath
 
     liftIO $ print $ responseBody res
 
 main :: IO ()
 main = execParser opts >>= runExceptT . doIt >>= printErr
     where
-    opts = info (helper <*> ((,,) <$> parseAPIKeys <*> parseNonce <*> parseCommand)) (fullDesc <> header "Kraken API")
-
-    parseNonce = argument auto (metavar "NONCE")
+    opts = info (helper <*> ((,) <$> parseAPIKeys <*> parseCommand)) (fullDesc <> header "Kraken API")
 
     printErr (Left err) = putStrLn err
     printErr (Right _)  = return ()

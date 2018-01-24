@@ -5,6 +5,8 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Monoid
 import Data.Default.Class
 import Data.Maybe
+import Data.Time.Clock.POSIX
+import Control.Monad.IO.Class
 
 import Data.ByteString.Lazy.Char8 (pack)
 import qualified Data.ByteString.Base64.Lazy as B64
@@ -37,6 +39,9 @@ apiRoot =  "https://api.kraken.com"
 balancePath :: ByteString
 balancePath =  "/0/private/Balance"
 
+addOrderPath :: ByteString
+addOrderPath =  "/0/private/AddOrder"
+
 data APIResult a = APIResult {
     error  :: [Value],
     result :: Maybe a
@@ -57,6 +62,46 @@ instance FromJSON Balances where
         <$> (fmap read <$> (v .:? "BCH"))
         <*> (fmap read <$> (v .:? "XXBT"))
 
+data AssetPair 
+    = XBTUSD
+
+instance ToJSON AssetPair where
+    toJSON XBTUSD = "XBTUSD"
+
+data OrderSide  
+    = Buy
+    | Sell
+
+instance ToJSON OrderSide where
+    toJSON Buy  = "buy"
+    toJSON Sell = "sell"
+
+data OrderType
+    = Market
+
+instance ToJSON OrderType where
+    toJSON Market = "market"
+
+data Order = Order {
+    assetPair   :: AssetPair,
+    orderSide   :: OrderSide,
+    orderType   :: OrderType,
+    orderVolume :: Double
+}
+
+instance ToJSON Order where
+    toJSON Order{..} = object [
+            "pair"      .= assetPair,
+            "type"      .= orderSide,
+            "ordertype" .= orderType,
+            "volume"    .= ("0.0001" :: String) --orderVolume
+        ]
+    toEncoding Order{..} = pairs $ 
+           "pair"      .= assetPair
+        <> "type"      .= orderSide
+        <> "ordertype" .= orderType
+        <> "volume"    .= ("0.0001" :: String) --orderVolume
+
 data APIKey = APIKey {
     publicKey :: ByteString,
     secretKey :: ByteString
@@ -67,8 +112,11 @@ instance FromJSON APIKey where
         <$> fmap pack (v .: "PublicKey")
         <*> fmap pack (v .: "PrivateKey")
 
-doRequest :: APIKey -> Int -> IO (JsonResponse Value)
-doRequest APIKey{..} nonce = runReq def $ do
+doRequest :: APIKey -> ByteString -> IO (JsonResponse Value)
+doRequest APIKey{..} path = runReq def $ do
+
+    currentTime <- liftIO getPOSIXTime
+    let nonce = floor $ currentTime * 100
 
     let payload = object [ 
             "nonce" .= (nonce :: Int)
@@ -76,13 +124,13 @@ doRequest APIKey{..} nonce = runReq def $ do
 
     let sig = sign 
             (B64.decodeLenient secretKey)
-            balancePath
+            path
             (pack $ show nonce)
             (encode payload)
 
     r <- req 
         POST
-        (fst $ fromJust $ parseUrlHttps $ BS.toStrict $ apiRoot <> balancePath)
+        (fst $ fromJust $ parseUrlHttps $ BS.toStrict $ apiRoot <> path)
         (ReqBodyJson payload) 
         jsonResponse
         (
