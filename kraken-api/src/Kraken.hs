@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, FlexibleInstances #-}
 module Kraken where
 
 import Data.ByteString.Lazy (ByteString)
@@ -83,22 +83,26 @@ instance ToJSON OrderType where
     toJSON Market = "market"
 
 data Order = Order {
-    nonce       :: Int,
     assetPair   :: AssetPair,
     orderSide   :: OrderSide,
     orderType   :: OrderType,
     orderVolume :: Double
 }
 
-instance ToJSON Order where
-    toJSON Order{..} = object [
+data Nonced a = Nonced {
+    nonce :: Int,
+    body  :: a
+}
+
+instance ToJSON (Nonced Order) where
+    toJSON (Nonced nonce Order{..}) = object [
             "nonce"     .= nonce,
             "pair"      .= assetPair,
             "type"      .= orderSide,
             "ordertype" .= orderType,
             "volume"    .= ("0.001" :: String) --orderVolume
         ]
-    toEncoding Order{..} = pairs $ 
+    toEncoding (Nonced nonce Order{..}) = pairs $ 
            "nonce"     .= nonce
         <> "pair"      .= assetPair
         <> "type"      .= orderSide
@@ -121,11 +125,7 @@ doRequest APIKey{..} path = runReq def $ do
     currentTime <- liftIO getPOSIXTime
     let nonce = floor $ currentTime * 100
 
-    --let payload = object [ 
-    --        "nonce" .= (nonce :: Int)
-    --        ]
-
-    let payload = Order nonce XBTUSD Buy Market 0.001
+    let payload = Nonced nonce $ Order XBTUSD Buy Market 0.001
 
     let sig = sign 
             (B64.decodeLenient secretKey)
